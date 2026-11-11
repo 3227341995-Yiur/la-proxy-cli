@@ -21,7 +21,8 @@
     "build": "vite build",
     "build:client": "vite build",
     "dev": "vite build --watch",
-    "test": "pnpm build:node && node --test test/node.test.ts"
+    "test": "pnpm build:node && node --test test/node.test.ts",
+    "prepare": "pnpm build"
   },
   "devDependencies": {
     "@element-plus/icons-vue": "^2.3.2",
