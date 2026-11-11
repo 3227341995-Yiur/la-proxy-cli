@@ -1,0 +1,46 @@
+{
+  "name": "la-proxy-cli",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "lib/node.js",
+  "exports": {
+    ".": "./lib/node.js",
+    "./client": "./lib/client.js"
+  },
+  "files": [
+    "lib",
+    "assets",
+    "cordis.patch.yml",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "vite build",
+    "build:client": "vite build",
+    "dev": "vite build --watch",
+    "test": "pnpm build:node && node --test test/node.test.ts"
+  },
+  "devDependencies": {
+    "@element-plus/icons-vue": "^2.3.2",
+    "@vitejs/plugin-vue": "^6.0.10",
+    "element-plus": "^2.14.7",
+    "highlight.js": "^11.12.0",
+    "vite": "^8.3.5",
+    "vue": "^3.5.44",
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.0",
+    "plugin-api": "file:../week-report-vue/packages/sdk/plugin-api"
+  },
+  "weekReport": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "entry": "./lib/client.js"
+    },
+    "kind": "feature"
+  },
+  "allowScripts": {
+    "esbuild": true
+  }
+}
