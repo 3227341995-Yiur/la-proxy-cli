@@ -1,3 +1,5 @@
+minimumReleaseAgeExclude:
+  - '@lucky-apps/plugin-api@1.0.0'
 nodeLinker: hoisted
 packageImportMethod: copy
 verifyDepsBeforeRun: false

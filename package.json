@@ -1,7 +1,10 @@
 {
   "name": "la-proxy-cli",
   "version": "1.0.0",
-  "keywords": ["cordis", "lucky-app"],
+  "keywords": [
+    "cordis",
+    "lucky-app"
+  ],
   "private": true,
   "type": "module",
   "main": "lib/node.js",
@@ -29,7 +32,7 @@
     "vue": "^3.5.44",
     "@types/node": "^24.0.0",
     "typescript": "^5.9.0",
-    "@lucky-apps/plugin-api": "github:3227341995-Yiur/lucky-apps#path:/packages/sdk/plugin-api"
+    "@lucky-apps/plugin-api": "^1.0.0"
   },
   "weekReport": {
     "bundle": {

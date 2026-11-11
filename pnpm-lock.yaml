@@ -12,8 +12,8 @@ importers:
         specifier: ^2.3.2
         version: 2.3.2(vue@3.5.45(typescript@5.9.3))
       '@lucky-apps/plugin-api':
-        specifier: github:3227341995-Yiur/lucky-apps#path:/packages/sdk/plugin-api
-        version: plugin-api@https://codeload.github.com/3227341995-Yiur/lucky-apps/tar.gz/af651d5b14be72e59cdb62c4c7ff08aff82deed7#path:/packages/sdk/plugin-api
+        specifier: ^1.0.0
+        version: 1.0.0
       '@types/node':
         specifier: ^24.0.0
         version: 24.19.2
@@ -75,6 +75,9 @@ packages:
 
   '@jridgewell/sourcemap-codec@1.6.0':
     resolution: {integrity: sha512-T7jf+5zgsZHwNJ4lvQ7/aezbyk0nNX+zJVWpmHA7VYsEx7a7qr5Rg5IbtJFqkgze5Y2sruq1RUY8Q837Od7iFw==}
+
+  '@lucky-apps/plugin-api@1.0.0':
+    resolution: {integrity: sha512-9oVCKQm4uR61fLd+rQBembkbtD+yMuceQtvx8fdtYvkNLl4gfI/fL8/Cbx4CvFtJZN59ESwu3kHcuf1Pyy3JEA==, tarball: https://registry.npmjs.org/@lucky-apps/plugin-api/-/plugin-api-1.0.0.tgz}
 
   '@oxc-project/types@0.156.0':
     resolution: {integrity: sha512-1Duyg48TdJNdyhEB8Xn1L36bT9Pv6GUtlKjHxOys8xkaF/rQq3XJE+bAurSK/AgIz5mGFsb77cn9Pb20+WCScw==}
@@ -394,10 +397,6 @@ packages:
     resolution: {integrity: sha512-qcJu88Q2IWqJsDD529JKMdwGm/dvInW4HvQnRwiH9JtihJvzGOscDtHE3x1pBKeUOTysQ8kVmLnJ2kJu7yhcGA==}
     engines: {node: '>=12'}
 
-  plugin-api@https://codeload.github.com/3227341995-Yiur/lucky-apps/tar.gz/af651d5b14be72e59cdb62c4c7ff08aff82deed7#path:/packages/sdk/plugin-api:
-    resolution: {gitHosted: true, integrity: sha512-PeE1pwOzK8uj5JoaYRYZm+KAekH8FWIKXlmxhEm6GdJ+KKvEBKhmYFkztxvY1xnhWFm1hxW9uSKCzzEF69BjAw==, path: /packages/sdk/plugin-api, tarball: https://codeload.github.com/3227341995-Yiur/lucky-apps/tar.gz/af651d5b14be72e59cdb62c4c7ff08aff82deed7}
-    version: 1.0.0
-
   postcss@8.5.32:
     resolution: {integrity: sha512-LJlKCCAUFKOuZxipUdYw1NzIITEsPcgyOG9LkvRJvuKj/bRzbuRY0ARXvL0pWGpsZvn8jku+LMep2eU0seHp8g==}
     engines: {node: ^10 || ^12 || >=14}
@@ -510,6 +509,8 @@ snapshots:
   '@floating-ui/utils@0.2.12': {}
 
   '@jridgewell/sourcemap-codec@1.6.0': {}
+
+  '@lucky-apps/plugin-api@1.0.0': {}
 
   '@oxc-project/types@0.156.0': {}
 
@@ -759,8 +760,6 @@ snapshots:
   picocolors@1.1.1: {}
 
   picomatch@4.0.7: {}
-
-  plugin-api@https://codeload.github.com/3227341995-Yiur/lucky-apps/tar.gz/af651d5b14be72e59cdb62c4c7ff08aff82deed7#path:/packages/sdk/plugin-api: {}
 
   postcss@8.5.32:
     dependencies:
