@@ -34,7 +34,7 @@
     "typescript": "^5.9.0",
     "@lucky-apps/plugin-api": "^1.0.0"
   },
-  "weekReport": {
+  "la": {
     "bundle": {
       "patch": "./cordis.patch.yml"
     },
