@@ -38,6 +38,31 @@ function cssInjectedByJs(): Plugin {
 }
 
 // 同一个标准 Vite 项目里顺带产出 Node half（ESM），不额外维护第二份 config。
+function clientModuleBundle(name: string): Plugin {
+  return {
+    name: 'lucky-apps-client-bundle',
+    apply: 'build',
+    enforce: 'post',
+    async writeBundle(options) {
+      const outDir = options.dir
+      if (!outDir) return
+      const file = path.join(outDir, 'client.js')
+      const js = await readFile(file, 'utf8').catch(() => '')
+      if (!js || js.includes('__ModuleLoader__')) return
+      await writeFile(file, `window.__ModuleLoader__.load({
+  id: ${JSON.stringify(name)},
+  factory: (require) => {
+    var module = { exports: {} };
+    var exports = module.exports;
+${js}
+    return module.exports;
+  }
+});
+`)
+    },
+  }
+}
+
 function nodeHalf(): Plugin {
   return {
     name: 'cordis-node-half',
@@ -65,7 +90,7 @@ function nodeHalf(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [vue(), cssInjectedByJs(), nodeHalf()],
+  plugins: [vue(), cssInjectedByJs(), clientModuleBundle(name), nodeHalf()],
   build: {
     outDir: path.resolve(root, 'lib'),
     emptyOutDir: false,
@@ -73,19 +98,11 @@ export default defineConfig({
     minify: false,
     lib: {
       entry: path.resolve(root, 'src/index.ts'),
-      formats: ['iife'],
-      name: '__wrPlugin',
+      formats: ['cjs'],
       fileName: () => 'client.js',
     },
     rollupOptions: {
       external: ['vue', 'element-plus', '@element-plus/icons-vue'],
-      output: {
-        globals: {
-          vue: 'Vue',
-          'element-plus': 'ElementPlus',
-          '@element-plus/icons-vue': 'ElementPlusIconsVue',
-        },
-      },
     },
   },
 })

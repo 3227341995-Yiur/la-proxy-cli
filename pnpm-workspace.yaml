@@ -1,0 +1,3 @@
+nodeLinker: hoisted
+packageImportMethod: copy
+verifyDepsBeforeRun: false

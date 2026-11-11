@@ -1,4 +1,4 @@
-import { definePlugin, navigation } from 'plugin-api'
+import { definePlugin, navigation } from '@lucky-apps/plugin-api'
 import ProxyCfgPage from './ProxyCfgPage.vue'
 
 export default definePlugin({

@@ -4,7 +4,7 @@
  * 独立的 nginx 反向代理配置服务：读写 nginx conf、nginx -t 校验、reload，
  * 不经过周报宿主，也不修改宿主代码。
  */
-import { execFile, spawn } from 'node:child_process'
+import { execFile, execFileSync, spawn, type ChildProcess } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { readFile, writeFile, rename, mkdir, unlink } from 'node:fs/promises'
 import { createServer } from 'node:http'
@@ -230,7 +230,7 @@ function normalizePath(value: string) {
   return text.replace(/\//g, '\\').toLowerCase()
 }
 
-async function ensureNginxPid(settings: AppSettings): Promise<{ ok: boolean; output?: string }> {
+async function ensureNginxPid(settings: AppSettings): Promise<{ ok: boolean; pid?: number; output?: string }> {
   if (process.platform !== 'win32' || !settings.nginxPath) return { ok: true }
   try {
     const { stdout } = await execFileAsync(
@@ -249,16 +249,31 @@ async function ensureNginxPid(settings: AppSettings): Promise<{ ok: boolean; out
     const ids = new Set(processes.map((item: any) => Number(item.ProcessId)))
     const masters = processes.filter((item: any) => !ids.has(Number(item.ParentProcessId)))
     const master = (masters.length ? masters : processes).sort((a: any, b: any) => Number(a.ProcessId) - Number(b.ProcessId))[0]
+    const pid = Number(master.ProcessId)
     const pidFile = join(dirname(settings.nginxPath), 'logs', 'nginx.pid')
     let current = ''
     try { current = readFileSync(pidFile, 'utf8').trim() } catch {}
-    if (current === String(master.ProcessId)) return { ok: true }
-    mkdirSync(dirname(pidFile), { recursive: true })
-    writeFileSync(pidFile, String(master.ProcessId))
-    return { ok: true }
+    if (current !== String(pid)) {
+      mkdirSync(dirname(pidFile), { recursive: true })
+      writeFileSync(pidFile, String(pid))
+    }
+    return { ok: true, pid }
   } catch (error) {
     return { ok: false, output: (error as Error).message }
   }
+}
+
+async function findNginxPid(settings: AppSettings): Promise<number | null> {
+  if (process.platform !== 'win32') {
+    try {
+      const { stdout } = await execFileAsync('pgrep', ['-x', 'nginx'], { encoding: 'utf8' })
+      return Number(String(stdout).trim().split(/\s+/)[0]) || null
+    } catch {
+      return null
+    }
+  }
+  const result = await ensureNginxPid(settings)
+  return result.ok ? result.pid ?? null : null
 }
 
 async function reloadNginx(settings: AppSettings) {
@@ -346,6 +361,98 @@ async function startNginx(settings: AppSettings) {
   } catch (error) {
     return { ok: false, output: (error as Error).message }
   }
+}
+
+// ============================================================
+// nginx 生命周期：插件加载即启动，插件卸载 / 宿主退出 / 被强杀时关闭
+// ============================================================
+let managedNginxPid: number | null = null
+let nginxWatchdog: ChildProcess | null = null
+let exitHookInstalled = false
+
+function hostWatchPid() {
+  return Number(process.env.WR_PARENT_PID || 0) || process.pid
+}
+
+function stopWatchdog() {
+  if (!nginxWatchdog) return
+  try { nginxWatchdog.kill() } catch {}
+  nginxWatchdog = null
+}
+
+// 宿主被强杀时 process 事件不会触发，留一个独立 watchdog 等宿主进程消失后收尾。
+function startWatchdog(nginxPid: number | null) {
+  stopWatchdog()
+  if (process.platform !== 'win32') return
+  const kill = nginxPid
+    ? `taskkill /F /T /PID ${nginxPid} 2>$null | Out-Null`
+    : 'taskkill /F /IM nginx.exe 2>$null | Out-Null'
+  const script = `$hostPid = ${hostWatchPid()}
+while (Get-Process -Id $hostPid -ErrorAction SilentlyContinue) { Start-Sleep -Seconds 2 }
+${kill}`
+  try {
+    nginxWatchdog = spawn('powershell.exe', ['-NoProfile', '-WindowStyle', 'Hidden', '-Command', script], {
+      detached: true,
+      stdio: 'ignore',
+      windowsHide: true
+    })
+    nginxWatchdog.unref()
+  } catch {}
+}
+
+async function startManagedNginx() {
+  const settings = loadSettings()
+  if (!settings.nginxPath) return { ok: false, output: '未配置 nginx 可执行文件' }
+  let pid = await findNginxPid(settings)
+  if (!pid) {
+    const result = await startNginx(settings)
+    if (!result.ok) return result
+    pid = await findNginxPid(settings)
+  }
+  managedNginxPid = pid
+  startWatchdog(pid)
+  return { ok: true, output: 'nginx 已启动' }
+}
+
+async function stopManagedNginx() {
+  stopWatchdog()
+  const settings = loadSettings()
+  const pid = managedNginxPid ?? await findNginxPid(settings)
+  managedNginxPid = null
+  if (process.platform !== 'win32') {
+    try {
+      if (pid) await execFileAsync('kill', ['-9', String(pid)])
+      else if (await nginxRunning()) await execFileAsync('pkill', ['-9', 'nginx'])
+      else return { ok: true, output: 'nginx 未运行' }
+      return { ok: true, output: 'nginx 已停止' }
+    } catch (error) {
+      return { ok: false, output: (error as Error).message }
+    }
+  }
+  try {
+    if (pid) await execFileAsync('taskkill', ['/F', '/T', '/PID', String(pid)], { windowsHide: true })
+    else if (await nginxRunning()) await execFileAsync('taskkill', ['/F', '/IM', 'nginx.exe'], { windowsHide: true })
+    else return { ok: true, output: 'nginx 未运行' }
+    return { ok: true, output: 'nginx 已停止' }
+  } catch (error) {
+    return { ok: false, output: (error as Error).message }
+  }
+}
+
+function installExitHook() {
+  if (exitHookInstalled) return
+  exitHookInstalled = true
+  process.once('exit', () => {
+    stopWatchdog()
+    if (!managedNginxPid) return
+    try {
+      if (process.platform === 'win32') {
+        execFileSync('taskkill', ['/F', '/T', '/PID', String(managedNginxPid)], { windowsHide: true })
+      } else {
+        process.kill(managedNginxPid, 'SIGKILL')
+      }
+    } catch {}
+  })
 }
 
 function describeApplied(result: any) {
@@ -463,9 +570,15 @@ async function detectChanges(entries, type = 'request') {
   }))
 }
 
-// 原项目的应用图标，随包发布，弹窗消息用它
+// 通知图标：public/app.ico 构建时复制到 lib，assets/app.ico 用于旧包结构
 function appIconPath() {
-  return join(dirname(fileURLToPath(import.meta.url)), '..', 'assets', 'app.ico')
+  const here = dirname(fileURLToPath(import.meta.url))
+  const candidates = [
+    join(here, '..', 'assets', 'app.ico'),
+    join(here, 'app.ico'),
+    join(here, '..', 'public', 'app.ico')
+  ]
+  return candidates.find(existsSync) || candidates[0]
 }
 
 function nativeNotify(title: string, message: string, type: 'info' | 'warning' | 'error' = 'info') {
@@ -844,6 +957,11 @@ export async function handleAction(action: string, payload: any = {}) {
       const settings = persistSettings({ autoProxyEnabled: Boolean(payload.enabled) })
       if (settings.autoProxyEnabled) restartAuto()
       else stopAuto()
+      nativeNotify(
+        settings.autoProxyEnabled ? '自动代理已开启' : '自动代理已暂停',
+        settings.autoProxyEnabled ? '本地服务可用时会自动切换并提示' : '已恢复手动切换',
+        'info'
+      )
       return { settings, autoState: { ...autoState } }
     }
     case 'save': {
@@ -858,28 +976,17 @@ export async function handleAction(action: string, payload: any = {}) {
     }
     case 'nginx': {
       const settings = loadSettings()
-      const allowed = { validate: ['-t'], reload: ['-s', 'reload'], start: [], stop: null }
-      if (!(payload.action in allowed)) throw new Error(`未知 nginx 操作: ${payload.action}`)
+      const allowed = { validate: ['-t'], reload: ['-s', 'reload'] }
+      if (!(payload.action in allowed) && payload.action !== 'start' && payload.action !== 'stop') {
+        throw new Error(`未知 nginx 操作: ${payload.action}`)
+      }
       if (payload.action === 'start') {
-        const result = await startNginx(settings)
+        const result = await startManagedNginx()
         if (!result.ok) nativeNotify('Nginx 启动失败', result.output, 'error')
         return result
       }
       if (payload.action === 'stop') {
-        if (process.platform === 'win32') {
-          try {
-            await execFileAsync('taskkill', ['/F', '/IM', 'nginx.exe'], { windowsHide: true })
-            return { ok: true, output: 'nginx 已停止' }
-          } catch (error) {
-            return { ok: false, output: error.message }
-          }
-        }
-        try {
-          await execFileAsync('pkill', ['-9', 'nginx'])
-          return { ok: true, output: 'nginx 已停止' }
-        } catch (error) {
-          return { ok: false, output: error.message }
-        }
+        return stopManagedNginx()
       }
       const result = payload.action === 'reload'
         ? await reloadNginx(settings)
@@ -996,15 +1103,31 @@ export async function apply(ctx) {
   closeTimer = null
   try {
     await ensureService()
+    let settings = loadSettings()
+    if (!settings.nginxPath) {
+      const detected = await findNginxPath()
+      if (detected) {
+        settings = { ...settings, nginxPath: detected }
+        persistSettings({ nginxPath: detected })
+      }
+    }
+    if (settings.nginxPath) {
+      const nginx = await startManagedNginx()
+      if (!nginx.ok) console.warn('[la-proxy-cli] nginx 自启动失败:', nginx.output)
+    } else {
+      console.warn('[la-proxy-cli] 未配置 nginx，跳过自启动')
+    }
+    installExitHook()
     restartAuto()
     console.log('[la-proxy-cli] local service ready')
   } catch (error) {
     console.error('[la-proxy-cli] 本地服务启动失败:', error.message)
   }
-  ctx?.on?.('dispose', () => {
+  ctx?.on?.('dispose', async () => {
     stopAuto()
     activeMounts = Math.max(0, activeMounts - 1)
     if (activeMounts > 0) return
+    await stopManagedNginx()
     closeTimer = setTimeout(() => {
       if (activeMounts > 0 || !service.listening) return
       service.closeAllConnections?.()
