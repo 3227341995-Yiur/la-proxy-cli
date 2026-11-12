@@ -1,7 +1,6 @@
-import { definePlugin, navigation } from '@lucky-apps/plugin-api'
 import ProxyCfgPage from './ProxyCfgPage.vue'
 
-export default definePlugin({
+export default {
   name: 'la-proxy-cli',
   inject: ['navigation'],
   apply(ctx) {
@@ -13,4 +12,4 @@ export default definePlugin({
       component: ProxyCfgPage,
     })
   }
-})
+}
