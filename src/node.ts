@@ -1085,7 +1085,7 @@ export async function apply(ctx) {
   } catch (error) {
     console.error('[la-proxy-cli] 本地服务启动失败:', error.message)
   }
-  ctx?.on?.('dispose', async () => {
+  ctx?.effect?.(() => async () => {
     stopAuto()
     activeMounts = Math.max(0, activeMounts - 1)
     if (activeMounts > 0) return
