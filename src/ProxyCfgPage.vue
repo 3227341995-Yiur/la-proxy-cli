@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
+import { AppDialog } from '@lucky-apps/client-ui'
 import hljs from 'highlight.js/lib/core'
 import nginxLanguage from 'highlight.js/lib/languages/nginx'
 import {
@@ -14,7 +15,6 @@ import {
   View
 } from '@element-plus/icons-vue'
 import { service } from './rpc'
-import PluginDialog from './PluginDialog.vue'
 
 hljs.registerLanguage('nginx', nginxLanguage)
 
@@ -524,144 +524,155 @@ onBeforeUnmount(() => clearInterval(statusTimer))
     </div>
 
     <!-- 编辑模块 -->
-    <PluginDialog
+    <AppDialog
       v-model="editOpen"
       title="编辑代理模块"
-      eyebrow="MODULE"
-      :description="editForm.path"
+      :subtitle="editForm.path"
+      icon="Edit"
       width="560px"
+      show-footer
     >
-      <el-form label-position="top" class="proxy-form">
-        <el-form-item label="模块">
-          <el-input v-model="editForm.path" disabled />
-        </el-form-item>
-        <el-form-item label="远程地址">
-          <el-input v-model="editForm.remote" placeholder="http://remote-host:port" />
-        </el-form-item>
-        <el-form-item label="本地地址">
-          <el-input v-model="editForm.local" placeholder="http://localhost:port" />
-        </el-form-item>
-        <el-form-item label="当前指向">
-          <el-radio-group v-model="editForm.mode">
-            <el-radio-button label="remote">远程</el-radio-button>
-            <el-radio-button label="local">本地</el-radio-button>
-          </el-radio-group>
-        </el-form-item>
-      </el-form>
+      <div class="dialog-body">
+        <el-form label-position="top" class="proxy-form">
+          <el-form-item label="模块">
+            <el-input v-model="editForm.path" disabled />
+          </el-form-item>
+          <el-form-item label="远程地址">
+            <el-input v-model="editForm.remote" placeholder="http://remote-host:port" />
+          </el-form-item>
+          <el-form-item label="本地地址">
+            <el-input v-model="editForm.local" placeholder="http://localhost:port" />
+          </el-form-item>
+          <el-form-item label="当前指向">
+            <el-radio-group v-model="editForm.mode">
+              <el-radio-button label="remote">远程</el-radio-button>
+              <el-radio-button label="local">本地</el-radio-button>
+            </el-radio-group>
+          </el-form-item>
+        </el-form>
+      </div>
       <template #footer>
         <el-button type="primary" :loading="busy" @click="saveEdit">保存并重载</el-button>
       </template>
-    </PluginDialog>
+    </AppDialog>
 
     <!-- 设置 -->
-    <PluginDialog
+    <AppDialog
       v-model="settingsOpen"
       title="Nginx 代理设置"
-      eyebrow="SETTINGS"
-      description="nginx 路径、配置文件与自动代理"
+      subtitle="nginx 路径、配置文件与自动代理"
+      icon="Setting"
       width="600px"
+      show-footer
     >
-      <el-form label-position="top" class="proxy-form">
-        <el-form-item label="nginx.exe">
-          <div class="path-row">
-            <el-input v-model="settingsForm.nginxPath" placeholder="E:\\nginx-1.26.3\\nginx.exe" />
-            <el-button @click="pickPath('exe', value => settingsForm.nginxPath = value)">浏览</el-button>
-          </div>
-        </el-form-item>
-        <el-form-item label="配置文件">
-          <div class="path-row">
-            <el-input v-model="settingsForm.confPath" placeholder="E:\\nginx\\conf\\conf.d\\app.conf" />
-            <el-button @click="pickPath('conf', value => settingsForm.confPath = value)">浏览</el-button>
-          </div>
-        </el-form-item>
-        <el-form-item label="保存后自动 reload">
-          <el-switch v-model="settingsForm.syncReload" />
-          <span class="form-hint">关闭后只写文件和校验，不执行 nginx -s reload</span>
-        </el-form-item>
-        <el-form-item label="自动代理">
-          <div class="auto-settings">
-            <el-switch v-model="settingsForm.autoProxyEnabled" />
-            <el-input-number
-              v-model="settingsForm.autoProxyInterval"
-              :min="500"
-              :step="500"
-              size="small"
-              controls-position="right"
-            />
-            <span class="form-hint">毫秒</span>
-            <el-select v-model="settingsForm.autoProxyType" size="small" style="width: 116px">
-              <el-option label="HTTP 请求" value="request" />
-              <el-option label="端口探测" value="port" />
-            </el-select>
-          </div>
-          <div class="form-hint block">
-            开启后按间隔检测各模块本地地址，自动切换并保存；校验失败会回滚。
-          </div>
-          <div v-if="autoState.lastOutput || autoState.error" class="auto-state-line">
-            {{ autoState.lastOutput }}<span v-if="autoState.error"> · {{ autoState.error }}</span>
-          </div>
-        </el-form-item>
-      </el-form>
-      <div class="settings-nginx">
-        <span>Nginx 进程</span>
-        <span class="status-chip" :class="{ online: nginxRunning }">
-          <i></i>{{ nginxRunning ? '运行中' : '未运行' }}
-        </span>
-        <el-button size="small" @click="nginxAction('reload')">重载</el-button>
-        <el-button size="small" @click="nginxAction('validate')">校验</el-button>
+      <div class="dialog-body">
+        <el-form label-position="top" class="proxy-form">
+          <el-form-item label="nginx.exe">
+            <div class="path-row">
+              <el-input v-model="settingsForm.nginxPath" placeholder="E:\\nginx-1.26.3\\nginx.exe" />
+              <el-button @click="pickPath('exe', value => settingsForm.nginxPath = value)">浏览</el-button>
+            </div>
+          </el-form-item>
+          <el-form-item label="配置文件">
+            <div class="path-row">
+              <el-input v-model="settingsForm.confPath" placeholder="E:\\nginx\\conf\\conf.d\\app.conf" />
+              <el-button @click="pickPath('conf', value => settingsForm.confPath = value)">浏览</el-button>
+            </div>
+          </el-form-item>
+          <el-form-item label="保存后自动 reload">
+            <el-switch v-model="settingsForm.syncReload" />
+            <span class="form-hint">关闭后只写文件和校验，不执行 nginx -s reload</span>
+          </el-form-item>
+          <el-form-item label="自动代理">
+            <div class="auto-settings">
+              <el-switch v-model="settingsForm.autoProxyEnabled" />
+              <el-input-number
+                v-model="settingsForm.autoProxyInterval"
+                :min="500"
+                :step="500"
+                size="small"
+                controls-position="right"
+              />
+              <span class="form-hint">毫秒</span>
+              <el-select v-model="settingsForm.autoProxyType" size="small" style="width: 116px">
+                <el-option label="HTTP 请求" value="request" />
+                <el-option label="端口探测" value="port" />
+              </el-select>
+            </div>
+            <div class="form-hint block">
+              开启后按间隔检测各模块本地地址，自动切换并保存；校验失败会回滚。
+            </div>
+            <div v-if="autoState.lastOutput || autoState.error" class="auto-state-line">
+              {{ autoState.lastOutput }}<span v-if="autoState.error"> · {{ autoState.error }}</span>
+            </div>
+          </el-form-item>
+        </el-form>
+        <div class="settings-nginx">
+          <span>Nginx 进程</span>
+          <span class="status-chip" :class="{ online: nginxRunning }">
+            <i></i>{{ nginxRunning ? '运行中' : '未运行' }}
+          </span>
+          <el-button size="small" @click="nginxAction('reload')">重载</el-button>
+          <el-button size="small" @click="nginxAction('validate')">校验</el-button>
+        </div>
       </div>
       <template #footer>
         <el-button type="primary" :loading="busy" @click="saveSettings">保存设置</el-button>
       </template>
-    </PluginDialog>
+    </AppDialog>
 
     <!-- 本地服务检测 -->
-    <PluginDialog
+    <AppDialog
       v-model="detectOpen"
       title="本地服务检测"
-      eyebrow="CHECK"
-      :description="`${detectedChanges.filter(item => item.localAvailable).length} / ${detectedChanges.length} 个本地服务可用`"
+      :subtitle="`${detectedChanges.filter(item => item.localAvailable).length} / ${detectedChanges.length} 个本地服务可用`"
+      icon="Search"
       width="640px"
+      show-footer
     >
-      <div class="detect-list">
-        <div v-for="item in detectedChanges" :key="item.path" class="detect-row">
-          <div class="detect-copy">
-            <strong>{{ item.path }}</strong>
-            <code>{{ item.localAvailable ? item.local : item.remote }}</code>
+      <div class="dialog-body">
+        <div class="detect-list">
+          <div v-for="item in detectedChanges" :key="item.path" class="detect-row">
+            <div class="detect-copy">
+              <strong>{{ item.path }}</strong>
+              <code>{{ item.localAvailable ? item.local : item.remote }}</code>
+            </div>
+            <span class="detect-state" :class="{ online: item.localAvailable }">
+              <i></i>{{ item.localAvailable ? '本地可用' : '本地不可用' }}
+            </span>
           </div>
-          <span class="detect-state" :class="{ online: item.localAvailable }">
-            <i></i>{{ item.localAvailable ? '本地可用' : '本地不可用' }}
-          </span>
         </div>
       </div>
       <template #footer>
         <el-button type="primary" :loading="busy" @click="applyDetected">切换并保存</el-button>
       </template>
-    </PluginDialog>
+    </AppDialog>
 
     <!-- 源码 -->
-    <PluginDialog
+    <AppDialog
       v-model="sourceOpen"
       title="nginx 配置源码"
-      eyebrow="SOURCE"
-      :description="settings.confPath"
+      :subtitle="settings.confPath"
+      icon="Document"
       width="880px"
     >
-      <div class="code-window">
-        <div class="code-bar">
-          <span class="code-dots"><i></i><i></i><i></i></span>
-          <span class="code-name">nginx.conf</span>
-          <span class="code-lines">{{ sourceLines }} 行</span>
-          <button type="button" class="code-copy" @click="copySource">
-            <el-icon><CopyDocument /></el-icon><span>复制</span>
-          </button>
-        </div>
-        <div class="code-body">
-          <pre class="line-numbers">{{ lineNumbers }}</pre>
-          <pre class="code-block"><code class="hljs language-nginx" v-html="highlightedSource"></code></pre>
+      <div class="dialog-body">
+        <div class="code-window">
+          <div class="code-bar">
+            <span class="code-dots"><i></i><i></i><i></i></span>
+            <span class="code-name">nginx.conf</span>
+            <span class="code-lines">{{ sourceLines }} 行</span>
+            <button type="button" class="code-copy" @click="copySource">
+              <el-icon><CopyDocument /></el-icon><span>复制</span>
+            </button>
+          </div>
+          <div class="code-body">
+            <pre class="line-numbers">{{ lineNumbers }}</pre>
+            <pre class="code-block"><code class="hljs language-nginx" v-html="highlightedSource"></code></pre>
+          </div>
         </div>
       </div>
-    </PluginDialog>
+    </AppDialog>
   </el-scrollbar>
 </template>
 
@@ -1058,8 +1069,16 @@ onBeforeUnmount(() => clearInterval(statusTimer))
   font-size: 12px;
 }
 
+.dialog-body {
+  padding: 16px 20px 4px;
+}
+
 .proxy-form :deep(.el-form-item) {
   margin-bottom: 14px;
+}
+
+.proxy-form :deep(.el-form-item:last-child) {
+  margin-bottom: 0;
 }
 
 .path-row {

@@ -25,6 +25,7 @@
     "prepare": "pnpm build"
   },
   "devDependencies": {
+    "@lucky-apps/client-ui": "^3.2.6",
     "@element-plus/icons-vue": "^2.3.2",
     "@vitejs/plugin-vue": "^6.0.10",
     "element-plus": "^2.14.7",

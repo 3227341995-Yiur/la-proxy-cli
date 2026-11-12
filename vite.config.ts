@@ -102,7 +102,7 @@ export default defineConfig({
       fileName: () => 'client.js',
     },
     rollupOptions: {
-      external: ['vue', 'element-plus', '@element-plus/icons-vue'],
+      external: ['vue', 'element-plus', '@element-plus/icons-vue', '@lucky-apps/client-ui'],
     },
   },
 })

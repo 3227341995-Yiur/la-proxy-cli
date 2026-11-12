@@ -19,7 +19,8 @@ Lucky Apps 外部插件：本地 nginx 反向代理配置管理。
 - **系统通知**：Windows 使用 WinRT Toast（AUMID `com.lu.lucky-apps`），macOS 使用系统通知中心；
   自动切换、手动切换、自动代理开关、保存或校验失败都会提示。
 - **Client half**（`src/ProxyCfgPage.vue`）：导航页「Nginx 代理」，模块卡片、批量切换、
-  源码高亮、本地服务检测与设置弹窗。
+  源码高亮、本地服务检测与设置弹窗。弹窗统一使用 `@lucky-apps/client-ui` 的 `AppDialog`；
+  构建时标为 external，运行时由宿主 `window.__ModuleLoader__` staticModules 提供。
 - 设置持久化在 `%APPDATA%/week-report-proxy-cfg/config.json`
   （可用 `WR_PROXY_CFG_DATA` 覆盖），支持从 `proxy_cfg_cli/config.ini` 导入现有配置。
   服务端口 `38472`（可用 `WR_PROXY_CFG_PORT` 覆盖）。

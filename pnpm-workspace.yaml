@@ -1,5 +1,5 @@
 minimumReleaseAgeExclude:
-  - '@lucky-apps/plugin-api@1.0.0'
+  - '@lucky-apps/client-ui@3.2.6'
 nodeLinker: hoisted
 packageImportMethod: copy
 verifyDepsBeforeRun: false
