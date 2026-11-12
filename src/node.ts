@@ -585,89 +585,51 @@ function nativeNotify(title: string, message: string, type: 'info' | 'warning' |
   const text = String(message || '').slice(0, 500)
   try {
     if (process.platform === 'win32') {
-      const iconPath = appIconPath()
-      const script = `Add-Type -AssemblyName System.Windows.Forms
-Add-Type -AssemblyName System.Drawing
-Add-Type -TypeDefinition @'
-using System.Windows.Forms;
-public class WRNotifyForm : Form {
-  protected override bool ShowWithoutActivation { get { return true; } }
-  protected override CreateParams CreateParams {
-    get {
-      var cp = base.CreateParams;
-      cp.ExStyle |= 0x08000000 | 0x00000080;
-      return cp;
-    }
+      // Windows 系统通知：走 WinRT Toast（通知中心），AUMID 与安装包一致；
+      // 未注册 AUMID 时退回系统托盘气泡，避免静默无提示。
+      const b64 = (value: string) => Buffer.from(value, 'utf8').toString('base64')
+      const script = `$ErrorActionPreference = 'Stop'
+$title = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${b64(title)}'))
+$message = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${b64(text)}'))
+try {
+  [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
+  [Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime] | Out-Null
+  $xmlText = '<toast duration="short"><visual><binding template="ToastGeneric"><text>' +
+    [Security.SecurityElement]::Escape($title) + '</text><text>' +
+    [Security.SecurityElement]::Escape($message) + '</text></binding></visual></toast>'
+  $xml = New-Object Windows.Data.Xml.Dom.XmlDocument
+  $xml.LoadXml($xmlText)
+  $toast = New-Object Windows.UI.Notifications.ToastNotification $xml
+  [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('com.lu.lucky-apps').Show($toast)
+} catch {
+  Add-Type -AssemblyName System.Windows.Forms
+  Add-Type -AssemblyName System.Drawing
+  $iconFile = '${psQuote(appIconPath())}'
+  if ((Test-Path -LiteralPath $iconFile) -and -not $iconFile.EndsWith('.png')) {
+    try { $icon = New-Object System.Drawing.Icon($iconFile) } catch { $icon = [System.Drawing.SystemIcons]::Information }
+  } else {
+    $icon = [System.Drawing.SystemIcons]::Information
   }
-}
-'@
-$form = New-Object WRNotifyForm
-$form.FormBorderStyle = 'None'
-$form.StartPosition = 'Manual'
-$form.TopMost = $true
-$form.ShowInTaskbar = $false
-$form.BackColor = [System.Drawing.Color]::FromArgb(30, 32, 38)
-$form.Opacity = 0.97
-$form.Size = New-Object System.Drawing.Size(390, 122)
-$area = [System.Windows.Forms.Screen]::PrimaryScreen.WorkingArea
-$form.Location = New-Object System.Drawing.Point(($area.Right - 410), ($area.Bottom - 140))
-$path = New-Object System.Drawing.Drawing2D.GraphicsPath
-$r = 14
-$path.AddArc(0, 0, $r, $r, 180, 90)
-$path.AddArc($form.Width - $r, 0, $r, $r, 270, 90)
-$path.AddArc($form.Width - $r, $form.Height - $r, $r, $r, 0, 90)
-$path.AddArc(0, $form.Height - $r, $r, $r, 90, 90)
-$path.CloseFigure()
-$form.Region = New-Object System.Drawing.Region($path)
-$accent = New-Object System.Windows.Forms.Panel
-$accent.BackColor = [System.Drawing.Color]::FromArgb(96, 165, 250)
-$accent.Location = New-Object System.Drawing.Point(0, 12)
-$accent.Size = New-Object System.Drawing.Size(4, 98)
-$textLeft = 20
-$iconFile = '${psQuote(appIconPath())}'
-if (Test-Path -LiteralPath $iconFile) {
-  try {
-    $icon = New-Object System.Drawing.Icon($iconFile, (New-Object System.Drawing.Size(30, 30)))
-    $iconBox = New-Object System.Windows.Forms.PictureBox
-    $iconBox.SizeMode = 'StretchImage'
-    $iconBox.Image = $icon.ToBitmap()
-    $iconBox.Location = New-Object System.Drawing.Point(18, 18)
-    $iconBox.Size = New-Object System.Drawing.Size(30, 30)
-    $form.Controls.Add($iconBox)
-    $textLeft = 60
-  } catch {}
-}
-$titleLabel = New-Object System.Windows.Forms.Label
-$titleLabel.Text = '${psQuote(title)}'
-$titleLabel.ForeColor = [System.Drawing.Color]::White
-$titleLabel.Font = New-Object System.Drawing.Font('Segoe UI', 11, [System.Drawing.FontStyle]::Bold)
-$titleLabel.Location = New-Object System.Drawing.Point($textLeft, 16)
-$titleLabel.Size = New-Object System.Drawing.Size(370 - $textLeft, 24)
-$messageLabel = New-Object System.Windows.Forms.Label
-$messageLabel.Text = '${psQuote(text)}'
-$messageLabel.ForeColor = [System.Drawing.Color]::FromArgb(196, 203, 214)
-$messageLabel.Font = New-Object System.Drawing.Font('Segoe UI', 9)
-$messageLabel.Location = New-Object System.Drawing.Point($textLeft, 44)
-$messageLabel.Size = New-Object System.Drawing.Size(370 - $textLeft, 64)
-$form.Controls.Add($accent)
-$form.Controls.Add($titleLabel)
-$form.Controls.Add($messageLabel)
-$timer = New-Object System.Windows.Forms.Timer
-$timer.Interval = 5200
-$timer.Add_Tick({ $form.Close() })
-$timer.Start()
-[System.Windows.Forms.Application]::Run($form)
-$timer.Dispose()
-$form.Dispose()`
-      spawn('powershell.exe', ['-STA', '-NoProfile', '-WindowStyle', 'Hidden', '-Command', script], {
-        detached: true,
+  $notify = New-Object System.Windows.Forms.NotifyIcon
+  $notify.Icon = $icon
+  $notify.Text = 'Nginx 代理'
+  $notify.Visible = $true
+  $notify.ShowBalloonTip(4000, $title, $message, [System.Windows.Forms.ToolTipIcon]::Info)
+  Start-Sleep -Milliseconds 4500
+  $notify.Dispose()
+}`
+      // 不能 detached：脱离进程组的 PowerShell 拿不到交互桌面，WinRT Toast 会静默失败。
+      spawn('powershell.exe', ['-NoProfile', '-WindowStyle', 'Hidden', '-Command', script], {
         stdio: 'ignore',
         windowsHide: true
       }).unref()
       return
     }
     if (process.platform === 'darwin') {
-      const script = `display notification ${JSON.stringify(text)} with title ${JSON.stringify(title)}`
+      // osascript 属于系统通知中心；去掉换行，避免 AppleScript 字符串转义问题。
+      const appleText = text.replace(/[\r\n]+/g, ' ')
+      const appleTitle = title.replace(/[\r\n]+/g, ' ')
+      const script = `display notification ${JSON.stringify(appleText)} with title ${JSON.stringify(appleTitle)}`
       spawn('osascript', ['-e', script], { detached: true, stdio: 'ignore' }).unref()
       return
     }
